@@ -1,0 +1,32 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Setup: Create venv + install deps",
+      "type": "shell",
+      "command": "python3 -m venv .venv && . .venv/bin/activate && python -m pip install --upgrade pip && python -m pip install -r requirements.txt",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run: ECG quick",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python novel_ecg_denoising.py --process-sec 10 --ceemdan-trials 10 --output-dir results",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run: ECG standard",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python novel_ecg_denoising.py --process-sec 30 --ceemdan-trials 50 --output-dir results",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

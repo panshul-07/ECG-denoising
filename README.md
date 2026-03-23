@@ -40,6 +40,19 @@ Custom output folder:
 python novel_ecg_denoising.py --output-dir results
 ```
 
+## VS Code
+
+- Open this folder in VS Code.
+- Recommended extensions are defined in `.vscode/extensions.json`.
+- Interpreter is preconfigured to `.venv/bin/python` in `.vscode/settings.json`.
+- Use `Run and Debug`:
+  - `ECG Denoising: Quick (10s, 10 trials)`
+  - `ECG Denoising: Standard (30s, 50 trials)`
+- Or run terminal tasks:
+  - `Setup: Create venv + install deps`
+  - `Run: ECG quick`
+  - `Run: ECG standard`
+
 ## Output
 
 - Console: full comparison table for all 6 methods x 4 input SNRs.
