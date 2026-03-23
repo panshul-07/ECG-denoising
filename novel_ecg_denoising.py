@@ -343,7 +343,9 @@ def morphology_preserving_threshold(coeffs: np.ndarray, threshold: float, qrs_ma
     out[zone3] = sgn[zone3] * (mag[zone3] - 0.5 * t)
 
     if qrs_mask is not None and len(qrs_mask) > 0:
-        m = qrs_mask[: len(out)]
+        m = np.zeros_like(out, dtype=bool)
+        m_len = min(len(m), len(qrs_mask))
+        m[:m_len] = qrs_mask[:m_len]
         out[m] = w[m]
 
     return out
