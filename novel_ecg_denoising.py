@@ -13,8 +13,8 @@ This script implements three integrated contributions:
    QRS-protection mask to preserve sharp R-peak morphology in high-frequency sub-bands.
 
 Outputs:
-- Figure1.png ... Figure8.png (300 DPI)
-- results_table.csv
+- results/Figure1.png ... results/Figure8.png (300 DPI)
+- results/results_table.csv
 
 Notes:
 - MIT-BIH record loading requires network access on first download via wfdb/PhysioNet.
@@ -886,7 +886,7 @@ def main() -> None:
     parser.add_argument("--levels", type=int, default=5, help="Wavelet decomposition level")
     parser.add_argument("--ceemdan-trials", type=int, default=50, help="CEEMDAN ensemble trials")
     parser.add_argument("--seed", type=int, default=123, help="Random seed")
-    parser.add_argument("--output-dir", default=".", help="Output directory")
+    parser.add_argument("--output-dir", default="results", help="Output directory (default: results)")
     args = parser.parse_args()
 
     out_dir = Path(args.output_dir).resolve()

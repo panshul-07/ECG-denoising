@@ -9,8 +9,8 @@ Implementation of a CEEMDAN-guided ECG denoising framework with:
 ## Files
 
 - `novel_ecg_denoising.py` - full pipeline script
-- `results_table.csv` - generated metrics table
-- `Figure1.png` ... `Figure8.png` - generated figures
+- `results/results_table.csv` - generated metrics table
+- `results/Figure1.png` ... `results/Figure8.png` - generated figures
 
 ## Install
 
@@ -34,7 +34,13 @@ Process full 5 minutes:
 python novel_ecg_denoising.py --process-sec 300
 ```
 
+Custom output folder:
+
+```bash
+python novel_ecg_denoising.py --output-dir results
+```
+
 ## Output
 
 - Console: full comparison table for all 6 methods x 4 input SNRs.
-- Disk: `results_table.csv` and `Figure1.png` through `Figure8.png`.
+- Disk: `results/results_table.csv` and `results/Figure1.png` through `results/Figure8.png`.
