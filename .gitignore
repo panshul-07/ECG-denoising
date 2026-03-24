@@ -4,3 +4,4 @@ __pycache__/
 Figure*.png
 results_table.csv
 results/*.pptx
+results/_bg_assets/

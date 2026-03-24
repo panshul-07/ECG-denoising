@@ -8,6 +8,9 @@
       "program": "${workspaceFolder}/novel_ecg_denoising.py",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
+      "env": {
+        "MPLCONFIGDIR": "/tmp/matplotlib-cache"
+      },
       "args": [
         "--process-sec",
         "10",
@@ -24,6 +27,9 @@
       "program": "${workspaceFolder}/novel_ecg_denoising.py",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
+      "env": {
+        "MPLCONFIGDIR": "/tmp/matplotlib-cache"
+      },
       "args": [
         "--process-sec",
         "30",

@@ -1,26 +1,3 @@
-#!/usr/bin/env python3
-"""
-Novel ECG Signal Denoising via CEEMDAN-Guided Morphological Custom Wavelet Design
-and Sub-band Adaptive Thresholding.
-
-This script implements three integrated contributions:
-1) Morphology-driven custom mother wavelet design: CEEMDAN-derived dominant cardiac IMF,
-   averaged QRS prototype, Gaussian-mixture morphology fitting, derivative-based admissible
-   mother wavelet, iterative scaling-function construction, and custom FIR filter-bank synthesis.
-2) CEEMDAN-guided sub-band noise profiling: noise-dominant IMF selection and wavelet-level
-   threshold calibration using IMF-to-sub-band frequency mapping with sigmoid level weighting.
-3) Morphology-preserving thresholding: a three-zone nonlinear shrinkage function with a
-   QRS-protection mask to preserve sharp R-peak morphology in high-frequency sub-bands.
-
-Outputs:
-- results/Figure1.png ... results/Figure8.png (300 DPI)
-- results/results_table.csv
-
-Notes:
-- MIT-BIH record loading requires network access on first download via wfdb/PhysioNet.
-- CEEMDAN is computationally expensive. By default, the script loads 5 minutes but processes
-  the first 30 seconds for denoising experiments. Use `--process-sec 300` to process all 5 minutes.
-"""
 
 from __future__ import annotations
 
@@ -47,6 +24,9 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 EPS = 1e-12
 
 
+# -----------------------------------------------------------------------------
+# Data containers
+# -----------------------------------------------------------------------------
 @dataclass
 class WaveletFilters:
     name: str
@@ -65,6 +45,9 @@ class MethodOutput:
     sparsity_ratio: float
 
 
+# -----------------------------------------------------------------------------
+# Core signal preparation and CEEMDAN helpers
+# -----------------------------------------------------------------------------
 def load_ecg(record: str = "100", duration_sec: int = 300) -> Tuple[np.ndarray, int]:
     """Load MIT-BIH ECG (lead MLII if available)."""
     # Read header first so sample count can be derived from real fs.
@@ -114,6 +97,9 @@ def select_dominant_imf(imfs: np.ndarray, clean_ecg: np.ndarray) -> Tuple[np.nda
     return imfs[idx], idx, corrs
 
 
+# -----------------------------------------------------------------------------
+# QRS localization and morphology modeling (Gaussian mixture)
+# -----------------------------------------------------------------------------
 def detect_r_peaks_pan_tompkins(signal_in: np.ndarray, fs: int) -> np.ndarray:
     """Simplified Pan-Tompkins style R-peak detector."""
     # Stage 1: bandpass around QRS-dominant frequencies.
@@ -223,6 +209,9 @@ def fit_gaussian_mixture(qrs_proto: np.ndarray, t: np.ndarray) -> Tuple[np.ndarr
     return params, fit_curve
 
 
+# -----------------------------------------------------------------------------
+# Custom wavelet synthesis (psi, phi, h, g) and admissibility checks
+# -----------------------------------------------------------------------------
 def _iterative_scaling_function(h: np.ndarray, iterations: int = 9) -> np.ndarray:
     """Iterative two-scale relation (cascade algorithm)."""
     phi = np.array([1.0], dtype=float)
@@ -272,6 +261,9 @@ def verify_admissibility(psi: np.ndarray, fs: int) -> Dict[str, np.ndarray | flo
     return {"dc_component": dc, "freq": freq, "response": resp}
 
 
+# -----------------------------------------------------------------------------
+# Manual DWT/IDWT implementation (required for custom filters)
+# -----------------------------------------------------------------------------
 def _next_pow2(n: int) -> int:
     return 1 if n <= 1 else 1 << (n - 1).bit_length()
 
@@ -324,6 +316,9 @@ def manual_idwt_reconstruct(approx: np.ndarray, details: List[np.ndarray], lengt
     return curr
 
 
+# -----------------------------------------------------------------------------
+# Thresholding functions and QRS protection
+# -----------------------------------------------------------------------------
 def _mad_sigma(x: np.ndarray) -> float:
     return float(np.median(np.abs(x - np.median(x))) / 0.6745 + EPS)
 
@@ -384,6 +379,9 @@ def detect_qrs_mask(signal_in: np.ndarray, fs: int, levels: int) -> Tuple[List[n
     return masks, peaks
 
 
+# -----------------------------------------------------------------------------
+# CEEMDAN-guided sub-band noise estimation and adaptive thresholds
+# -----------------------------------------------------------------------------
 def _spectral_centroid(x: np.ndarray, fs: int) -> float:
     x = x - np.mean(x)
     sp = np.abs(np.fft.rfft(x)) ** 2
@@ -439,6 +437,9 @@ def compute_adaptive_thresholds(sigma_j: np.ndarray, n_per_level: Sequence[int],
     return np.array(out, dtype=float)
 
 
+# -----------------------------------------------------------------------------
+# Denoising execution and objective metrics
+# -----------------------------------------------------------------------------
 def _threshold_details(
     details: List[np.ndarray],
     thresholds: np.ndarray,
@@ -529,6 +530,9 @@ def evaluate_metrics(original: np.ndarray, denoised: np.ndarray, noisy: np.ndarr
     }
 
 
+# -----------------------------------------------------------------------------
+# Baselines, plotting, and experiment orchestration
+# -----------------------------------------------------------------------------
 def _wavelet_from_pywt(name: str) -> WaveletFilters:
     w = pywt.Wavelet(name)
     return WaveletFilters(

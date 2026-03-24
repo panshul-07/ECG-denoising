@@ -13,7 +13,7 @@
     {
       "label": "Run: ECG quick",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/bin/python novel_ecg_denoising.py --process-sec 10 --ceemdan-trials 10 --output-dir results",
+      "command": "MPLCONFIGDIR=/tmp/matplotlib-cache ${workspaceFolder}/.venv/bin/python -u novel_ecg_denoising.py --process-sec 10 --ceemdan-trials 10 --output-dir results",
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -22,7 +22,16 @@
     {
       "label": "Run: ECG standard",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/bin/python novel_ecg_denoising.py --process-sec 30 --ceemdan-trials 50 --output-dir results",
+      "command": "MPLCONFIGDIR=/tmp/matplotlib-cache ${workspaceFolder}/.venv/bin/python novel_ecg_denoising.py --process-sec 30 --ceemdan-trials 50 --output-dir results",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run: ECG current file",
+      "type": "shell",
+      "command": "MPLCONFIGDIR=/tmp/matplotlib-cache ${workspaceFolder}/.venv/bin/python -u ${file}",
       "options": {
         "cwd": "${workspaceFolder}"
       },
