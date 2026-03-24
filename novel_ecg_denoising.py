@@ -67,11 +67,13 @@ class MethodOutput:
 
 def load_ecg(record: str = "100", duration_sec: int = 300) -> Tuple[np.ndarray, int]:
     """Load MIT-BIH ECG (lead MLII if available)."""
+    # Read header first so sample count can be derived from real fs.
     header = wfdb.rdheader(record, pn_dir="mitdb")
     fs = int(round(header.fs))
     sampto = int(duration_sec * fs)
     signals, fields = wfdb.rdsamp(record, pn_dir="mitdb", sampto=sampto)
     sig_names = fields.get("sig_name", [])
+    # MLII is the standard lead for most MIT-BIH denoising benchmarks.
     lead_idx = sig_names.index("MLII") if "MLII" in sig_names else 0
     ecg = signals[:, lead_idx].astype(np.float64)
     ecg -= np.mean(ecg)
@@ -88,6 +90,7 @@ def add_noise_at_snr(signal: np.ndarray, target_snr_db: float, rng: np.random.Ge
 
 def run_ceemdan(signal: np.ndarray, trials: int = 50, max_imf: int = -1, seed: int = 42) -> np.ndarray:
     """Run CEEMDAN decomposition using PyEMD."""
+    # Keep CEEMDAN deterministic for reproducible comparisons.
     ceemdan = CEEMDAN(trials=trials, parallel=False)
     ceemdan.noise_seed(seed)
     imfs = ceemdan.ceemdan(signal, max_imf=max_imf)
@@ -113,18 +116,22 @@ def select_dominant_imf(imfs: np.ndarray, clean_ecg: np.ndarray) -> Tuple[np.nda
 
 def detect_r_peaks_pan_tompkins(signal_in: np.ndarray, fs: int) -> np.ndarray:
     """Simplified Pan-Tompkins style R-peak detector."""
+    # Stage 1: bandpass around QRS-dominant frequencies.
     nyq = 0.5 * fs
     b, a = butter(2, [5.0 / nyq, 15.0 / nyq], btype="band")
     band = filtfilt(b, a, signal_in)
 
+    # Stage 2: derivative + squaring + moving-window integration.
     derivative = np.ediff1d(band, to_begin=0.0)
     squared = derivative**2
     win = max(1, int(0.15 * fs))
     mwi = np.convolve(squared, np.ones(win) / win, mode="same")
 
+    # Stage 3: adaptive threshold and minimum RR separation.
     thresh = np.mean(mwi) + 0.5 * np.std(mwi)
     peaks, _ = find_peaks(mwi, height=thresh, distance=max(1, int(0.20 * fs)))
 
+    # Stage 4: local refinement to align peaks with signal maxima.
     refined = []
     search = max(1, int(0.05 * fs))
     for p in peaks:
@@ -220,6 +227,7 @@ def _iterative_scaling_function(h: np.ndarray, iterations: int = 9) -> np.ndarra
     """Iterative two-scale relation (cascade algorithm)."""
     phi = np.array([1.0], dtype=float)
     for _ in range(iterations):
+        # Upsample then filter by low-pass mask to approximate phi at next scale.
         up = np.zeros(phi.size * 2, dtype=float)
         up[::2] = phi
         phi = np.convolve(up, h / math.sqrt(2.0), mode="full")
@@ -283,6 +291,7 @@ def manual_dwt_decompose(signal_in: np.ndarray, dec_lo: np.ndarray, dec_hi: np.n
     lengths = [len(approx)]
 
     for _ in range(levels):
+        # Approximation branch (low-pass) and detail branch (high-pass).
         cA = upfirdn(dec_lo, approx, up=1, down=2)
         cD = upfirdn(dec_hi, approx, up=1, down=2)
         details.append(cD)
@@ -298,6 +307,7 @@ def manual_idwt_reconstruct(approx: np.ndarray, details: List[np.ndarray], lengt
     filt_delay = max(0, len(rec_lo) - 2)
 
     for lvl in reversed(range(len(details))):
+        # Undo decimation via upsampling, then synthesize by summation.
         det = np.asarray(details[lvl], dtype=float)
         up_a = upfirdn(rec_lo, curr, up=2, down=1)
         up_d = upfirdn(rec_hi, det, up=2, down=1)
@@ -392,6 +402,7 @@ def profile_noise_per_subband(noisy_imfs: np.ndarray, levels: int, fs: int, clea
 
     sigma_j = []
     for j in range(1, levels + 1):
+        # Wavelet detail band j approximated as [fs/2^(j+1), fs/2^j].
         f_low = fs / (2 ** (j + 1))
         f_high = fs / (2**j)
         idx = np.where(noise_flags & (freqs >= f_low) & (freqs < f_high))[0]
@@ -894,6 +905,7 @@ def main() -> None:
 
     rng = np.random.default_rng(args.seed)
 
+    # 1) Load benchmark ECG and choose the processing window.
     print("Loading ECG...")
     full_clean, fs = load_ecg(record=args.record, duration_sec=args.duration_sec)
 
@@ -902,6 +914,7 @@ def main() -> None:
 
     print(f"Loaded {len(full_clean)/fs:.1f} s, processing {len(clean)/fs:.1f} s at fs={fs} Hz")
 
+    # 2) Build morphology-driven custom wavelet from clean ECG.
     print("Designing custom wavelet from clean ECG via CEEMDAN + QRS morphology...")
     clean_imfs = run_ceemdan(clean, trials=args.ceemdan_trials, max_imf=-1, seed=args.seed)
     dominant_imf, dominant_idx, clean_corrs = select_dominant_imf(clean_imfs, clean)
@@ -929,6 +942,7 @@ def main() -> None:
         "admiss": admiss,
     }
 
+    # 3) Evaluate all methods at each input SNR level.
     for snr_in in snr_levels:
         print(f"Running denoising pipeline for input SNR={snr_in} dB...")
         noisy = add_noise_at_snr(clean, snr_in, rng)
@@ -960,6 +974,7 @@ def main() -> None:
             }
             records.append(row)
 
+        # Keep the 10 dB case for detailed figure panels.
         if snr_in == 10:
             full_key = "FULL PROPOSED (N1+N2+N3)"
             db4_key = "db4 + universal + soft"
@@ -975,6 +990,7 @@ def main() -> None:
             fig_ctx["peaks_clean"] = detect_r_peaks_pan_tompkins(clean, fs)
             fig_ctx["peaks_den"] = detect_r_peaks_pan_tompkins(outputs[full_key].denoised, fs)
 
+    # 4) Save metrics and plots.
     df = pd.DataFrame.from_records(records)
     df = df[
         [

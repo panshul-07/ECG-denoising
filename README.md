@@ -57,3 +57,4 @@ python novel_ecg_denoising.py --output-dir results
 
 - Console: full comparison table for all 6 methods x 4 input SNRs.
 - Disk: `results/results_table.csv` and `results/Figure1.png` through `results/Figure8.png`.
+- Presentation: `results/ECG_Denoising_Presentation_24BEC0177.pptx`

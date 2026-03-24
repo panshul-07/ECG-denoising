@@ -6,3 +6,4 @@ PyWavelets
 wfdb
 EMD-signal
 scikit-image
+python-pptx
