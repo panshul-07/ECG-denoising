@@ -304,7 +304,8 @@ def manual_dwt_decompose(signal_in: np.ndarray, dec_lo: np.ndarray, dec_hi: np.n
 def manual_idwt_reconstruct(approx: np.ndarray, details: List[np.ndarray], lengths: List[int], rec_lo: np.ndarray, rec_hi: np.ndarray) -> np.ndarray:
     """Manual inverse DWT via upsampling + convolution + alignment cropping."""
     curr = np.asarray(approx, dtype=float)
-    filt_delay = max(0, len(rec_lo) - 2)
+    # For conv/downsample phase used in analysis, synthesis alignment is L-1 samples.
+    filt_delay = max(0, len(rec_lo) - 1)
 
     for lvl in reversed(range(len(details))):
         # Undo decimation via upsampling, then synthesize by summation.
