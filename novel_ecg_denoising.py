@@ -15,7 +15,7 @@ import pywt
 import wfdb
 from PyEMD import CEEMDAN
 from scipy.optimize import curve_fit
-from scipy.signal import butter, filtfilt, find_peaks, freqz, upfirdn
+from scipy.signal import butter, filtfilt, find_peaks, freqz, resample, upfirdn
 from scipy.signal.windows import tukey
 from skimage.metrics import structural_similarity as structural_similarity
 
@@ -224,6 +224,52 @@ def _iterative_scaling_function(h: np.ndarray, iterations: int = 9) -> np.ndarra
     return phi
 
 
+def _orthogonality_error(h: np.ndarray) -> float:
+    """Sum of squared even-shift autocorrelation terms (k>0)."""
+    l = len(h)
+    err = 0.0
+    for k in range(1, l // 2):
+        s = 0.0
+        for n in range(l):
+            m = n - 2 * k
+            if 0 <= m < l:
+                s += h[n] * h[m]
+        err += s * s
+    return float(err)
+
+
+def _design_pr_constrained_filter(target: np.ndarray, length: int = 8) -> np.ndarray:
+    """
+    Project a morphology target to a short, near-orthogonal low-pass filter.
+    This keeps morphology influence while enforcing stable reconstruction behavior.
+    """
+    tgt = np.asarray(target, dtype=float)
+    tgt = resample(tgt, length)
+    tgt = tgt - np.min(tgt)
+    tgt = tgt / (np.linalg.norm(tgt) + EPS)
+
+    db4 = np.asarray(pywt.Wavelet("db4").dec_lo, dtype=float)
+    x0 = db4 if len(db4) == length else resample(db4, length)
+
+    def objective(h_raw: np.ndarray) -> float:
+        h = np.asarray(h_raw, dtype=float)
+        sum_err = (np.sum(h) - math.sqrt(2.0)) ** 2
+        norm_err = (np.sum(h * h) - 1.0) ** 2
+        ortho_err = _orthogonality_error(h)
+        shape_err = np.mean((h - tgt) ** 2)
+        return 800.0 * ortho_err + 200.0 * sum_err + 60.0 * norm_err + 1.0 * shape_err
+
+    from scipy.optimize import minimize
+
+    res = minimize(objective, x0=x0, method="L-BFGS-B", options={"maxiter": 2000})
+    h = np.asarray(res.x if res.success else x0, dtype=float)
+
+    # Final normalization pass to keep low-pass gain consistent.
+    h = h / (np.sum(h) + EPS) * math.sqrt(2.0)
+    h = h / (math.sqrt(np.sum(h * h)) + EPS)
+    return h
+
+
 def build_custom_wavelet(params: np.ndarray, t: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Build custom mother wavelet, scaling function, and FIR filter bank."""
     morphology = _gaussian_mixture_3(t, *params)
@@ -239,10 +285,8 @@ def build_custom_wavelet(params: np.ndarray, t: np.ndarray) -> Tuple[np.ndarray,
     phi_seed = phi_seed - np.min(phi_seed) + EPS
     phi_seed = phi_seed / (np.linalg.norm(phi_seed) + EPS)
 
-    h = phi_seed.copy()
-    if len(h) % 2 == 1:
-        h = h[:-1]
-    h = h / (np.sum(h) + EPS) * math.sqrt(2.0)
+    # Use short PR-constrained analysis filter to avoid reconstruction collapse.
+    h = _design_pr_constrained_filter(phi_seed, length=8)
 
     # Quadrature mirror high-pass for orthogonal-like perfect reconstruction pair.
     g = ((-1.0) ** np.arange(len(h))) * h[::-1]
